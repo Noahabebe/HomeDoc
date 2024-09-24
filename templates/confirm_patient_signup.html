@@ -1,0 +1,31 @@
+<!-- confirm_patient_signup.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirm Patient Signup</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}Confirm Patient Signup{% endblock %}
+
+    {% block content %}
+    <div class="container">
+        <h1>Confirm Your Details</h1>
+        <p><strong>Name:</strong> {{ patient_name }}</p>
+        <p><strong>Phone:</strong> {{ patient_phone }}</p>
+        <p><strong>Email:</strong> {{ patient_email }}</p>
+
+        <form method="POST" action="{{ url_for('finalize_patient_signup') }}">
+            <input type="hidden" name="patient_name" value="{{ patient_name }}">
+            <input type="hidden" name="patient_phone" value="{{ patient_phone }}">
+            <input type="hidden" name="patient_email" value="{{ patient_email }}">
+            <button type="submit">Confirm Signup</button>
+        </form>
+    </div>
+    {% endblock %}
+</body>
+</html>

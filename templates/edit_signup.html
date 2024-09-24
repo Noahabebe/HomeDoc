@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Doctor Information</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}Edit Signup{% endblock %}
+
+    {% block content %}
+    <div class="container">
+        <h1>Edit Information for Dr. {{ doctor_name }}</h1>
+
+        <form method="POST">
+            <label>Name:</label>
+            <input type="text" name="doctor_name" value="{{ doctor_name }}" required>
+            <label>Phone:</label>
+            <input type="text" name="doctor_phone" value="{{ doctor_phone }}" required>
+            <label>Location:</label>
+            <input type="text" name="doctor_location" value="{{ doctor_location }}" required>
+            <label>Specialization:</label>
+            <input type="text" name="doctor_specialization" value="{{ doctor_specialization }}" required>
+            <label>Username:</label>
+            <input type="text" name="doctor_username" required>
+            <label>Password:</label>
+            <input type="password" name="doctor_password" required>
+            <button type="submit">Finalize Sign Up</button>
+        </form>
+        
+        
+        <a href="{{ url_for('doctor_search') }}">Back to Search</a>
+    </div>
+    {% endblock %}
+</body>
+</html>

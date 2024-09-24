@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Results</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}Results{% endblock %}
+
+    {% block content %}
+
+    <div class="container">
+        <h1>Doctor Search Results</h1>
+
+        {% if doctors %}
+            <ul>
+                {% for doctor in doctors %}
+                    <li>
+                        <strong>{{ doctor.name }}</strong><br>
+                        Location: {{ doctor.location }}<br>
+                        Phone: {{ doctor.phone }}<br>
+                        Specialization: {{ doctor.specialization }}<br>
+                        
+                            <!-- Edit button leading to the edit_signup route -->
+                            <a href="{{ url_for('edit_signup', 
+                        doctor_name=doctor['name'], 
+                        doctor_phone=doctor['phone'], 
+                        doctor_location=doctor['location'], 
+                        doctor_specialization=doctor['specialization']) }}">
+                        <button>Edit Doctor Info</button>
+                            </a>
+
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No doctors found matching your criteria.</p>
+        {% endif %}
+        
+        <a href="{{ url_for('doctor_search') }}">Back to Search</a>
+    </div>
+    {% endblock %}
+</body>
+</html>

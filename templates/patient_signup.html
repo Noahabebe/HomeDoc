@@ -1,0 +1,36 @@
+<!-- patient_signup.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Signup</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}Patient Signup{% endblock %}
+
+    {% block content %}
+
+    <div class="container">
+        <h1>Patient Signup</h1>
+        <form method="POST" action="{{ url_for('patient_signup') }}">
+            <label>Name:</label>
+            <input type="text" name="patient_name" required>
+            <label>Phone:</label>
+            <input type="text" name="patient_phone" required>
+            <label>Username:</label>
+            <input type="text" name="patient_username" required>
+            <label>Password:</label>
+            <input type="password" name="patient_password" required>
+            <button type="submit">Sign Up</button>
+        </form>
+        
+        <p>Already have an account? <a href="{{ url_for('patient_login') }}">Login as Patient</a></p>
+
+    </div>
+    {% endblock %}
+</body>
+</html>

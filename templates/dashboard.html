@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ user_type.capitalize() }} Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block title %}Dashboard{% endblock %}
+
+    {% block content %}
+    <div class="container">
+
+        <div class="dashboard-content">
+            <h1>Welcome to the {{ user_type.capitalize() }} Dashboard</h1>
+
+            {% if user_type == 'doctor' %}
+                <h2>Patients Signed Up:</h2>
+                <ul>
+                    {% for patient in patients %}
+                        <li>{{ patient.name }} - Contact: {{ patient.phone }}</li>
+                    {% else %}
+                        <p>No patients have signed up yet.</p>
+                    {% endfor %}
+                </ul>
+
+            {% elif user_type == 'patient' %}
+                <h2>Doctors Available:</h2>
+                <ul>
+                    {% for doctor in doctors %}
+                        <li>{{ doctor.name }} - {{ doctor.specialization }} - {{ doctor.location }}<br> Contact: {{ doctor.phone }}</li>
+                    {% else %}
+                        <p>No doctors have signed up yet.</p>
+                    {% endfor %}
+                </ul>
+
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+</body>
+</html>

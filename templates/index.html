@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HomeDoc App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .hero {
+            background-image: url('./static/image/hero_background.jpg');
+            background-size: cover;
+            background-position: center;
+            height: 400px;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+        }
+
+        .bsb-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .bsb-btn-xl {
+            padding: 10px 20px;
+            font-size: 1.25rem;
+            border-radius: 5px;
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Partner Carousel Styles */
+        .partner-carousel {
+            position: relative;
+            overflow: hidden;
+            white-space: nowrap;
+            width: 100%;
+            margin-top: 20px; /* Added margin for spacing */
+        }
+
+        .partner-wrapper {
+            display: flex;
+            transition: transform 0.5s ease;
+        }
+
+        .partner-card {
+            flex: 0 0 auto;
+            margin: 0 15px;
+        }
+
+        /* Add the following styles for responsiveness */
+        @media (max-width: 768px) {
+            .partner-card {
+                margin: 0 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .partner-card {
+                margin: 0 5px;
+            }
+        }
+
+        .partner-card img {
+            max-width: 100%;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+
+        .scroll-disabler {
+            width: 100vw;
+            height: 34.4px; /* Adjust as needed */
+            position: absolute;
+            background-color: rgba(0, 0, 0, 0.0001);
+        }
+
+        ::-webkit-scrollbar {
+            display: none; /* Hide scrollbar */
+        }
+    </style>
+</head>
+<body>
+    {% extends "base.html" %}
+
+    {% block content %}
+    <section class="hero">
+        <div class="bsb-overlay">
+            <div class="container">
+                <h1 class="display-3 fw-bold mb-3">Welcome to HomeDoc</h1>
+                <p class="lead mb-5">Your health, our priority. Connecting doctors and patients effortlessly.</p>
+                <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
+                    <a href="{{ url_for('doctor_login') }}" class="btn bsb-btn-xl btn-light gap-3">Doctor Login</a>
+                    <a href="{{ url_for('patient_login') }}" class="btn bsb-btn-xl btn-outline-light">Patient Login</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="container mt-4 bg-dark p-4 rounded">
+        <!-- Services Section -->
+        <h2 class="text-center">Our Services</h2>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card bg-secondary text-white mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Consultation</h5>
+                        <p class="card-text">Schedule an appointment with qualified professionals.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-secondary text-white mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Telemedicine</h5>
+                        <p class="card-text">Consult with doctors from the comfort of your home.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-secondary text-white mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Health Monitoring</h5>
+                        <p class="card-text">Track your health with our innovative tools.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Partners Section -->
+        <h2 class="text-center">Our Partners</h2>
+        <div class="partner-carousel" id="partnersContainer">
+            <div class="scroll-disabler"></div>
+            <div class="partner-wrapper">
+                <!-- Original Cards -->
+                <div class="partner-card">
+                    <img src="{{ url_for('static', filename='image/partner1.png') }}" alt="Partner 1">
+                    <p>Partner 1</p>
+                </div>
+                <div class="partner-card">
+                    <img src="{{ url_for('static', filename='image/partner2.png') }}" alt="Partner 2">
+                    <p>Partner 2</p>
+                </div>
+                <div class="partner-card">
+                    <img src="{{ url_for('static', filename='image/partner3.png') }}" alt="Partner 3">
+                    <p>Partner 3</p>
+                </div>
+                <div class="partner-card">
+                    <img src="{{ url_for('static', filename='image/partner4.png') }}" alt="Partner 4">
+                    <p>Partner 4</p>
+                </div>
+                <!-- Duplicated Cards -->
+                <div class="partner-card">
+                    <img src="{{ url_for('static', filename='image/partner1.png') }}" alt="Partner 1">
+                    <p>Partner 1</p>
+                </div>
+                <div class="partner-card">
+                    <img src="{{ url_for('static', filename='image/partner2.png') }}" alt="Partner 2">
+                    <p>Partner 2</p>
+                </div>
+                <div class="partner-card">
+                    <img src="{{ url_for('static', filename='image/partner3.png') }}" alt="Partner 3">
+                    <p>Partner 3</p>
+                </div>
+                <div class="partner-card">
+                    <img src="{{ url_for('static', filename='image/partner4.png') }}" alt="Partner 4">
+                    <p>Partner 4</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    <script>
+        const partnersContainer = document.getElementById('partnersContainer');
+        const partnerWrapper = partnersContainer.querySelector('.partner-wrapper');
+        const partnerCards = partnerWrapper.querySelectorAll('.partner-card');
+        
+        let currentIndex = 0;
+        let isAnimating = false;
+        const cardWidth = partnerCards[0].offsetWidth + 30; // Card width + margin
+
+        // Clone the first card and add it to the end of the carousel
+        const firstCard = partnerCards[0].cloneNode(true);
+        partnerWrapper.appendChild(firstCard);
+
+        // Set the initial transform for the partner wrapper
+        partnerWrapper.style.transform = `translateX(0)`;
+
+        // Animate the carousel
+        function animateCarousel() {
+            if (isAnimating) return;
+
+            isAnimating = true;
+
+            // Move to the next card
+            currentIndex = (currentIndex + 1) % (partnerCards.length + 1);
+            partnerWrapper.style.transition = 'transform 0.5s ease';
+            partnerWrapper.style.transform = `translateX(-${currentIndex * cardWidth}px)`;
+
+            // Check if we reached the cloned card
+            if (currentIndex === partnerCards.length) {
+                // Reset to the original position after the transition
+                setTimeout(() => {
+                    partnerWrapper.style.transition = 'none';
+                    currentIndex = 0;
+                    partnerWrapper.style.transform = `translateX(0)`;
+                }, 500);
+            }
+
+            // End of animation
+            setTimeout(() => {
+                isAnimating = false;
+            }, 500);
+        }
+
+        // Start the animation every 3 seconds
+        setInterval(animateCarousel, 3000);
+    </script>
+</body>
+</html>
