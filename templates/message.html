@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Message</title>
+    <link rel="stylesheet" href="path/to/bootstrap.css">
+    <script src="path/to/jquery.js"></script>
+    <script src="path/to/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <!-- Messaging Area -->
+            <div class="col-md-6">
+                <h2>Messages with {{ recipient_username }}</h2>
+                <div id="messages" style="border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto;"></div>
+                <input type="text" id="recipientInput" value="{{ recipient_username }}" readonly>
+                <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off">
+                <button id="sendMessage">Send</button>
+                <button id="startVideoCall">Start Video Call</button>
+            </div>
+
+            <!-- Calendar Area -->
+            <div class="col-md-6">
+                <h2>Appointment Calendar</h2>
+                <input type="date" id="appointmentDate">
+                <input type="time" id="appointmentTime">
+                <button id="saveAppointment">Save Appointment</button>
+                <div id="calendar" style="margin-top: 10px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Live updates using Socket.io
+        const socket = io();
+
+        // Function to send a message
+        document.getElementById('sendMessage').addEventListener('click', () => {
+            const message = document.getElementById('messageInput').value;
+
+            if (message.trim() !== '') {
+                socket.emit('send_message', { recipient: document.getElementById('recipientInput').value, message });
+                document.getElementById('messageInput').value = ''; // Clear input
+            }
+        });
+
+        // Listen for incoming messages
+        socket.on('receive_message', (data) => {
+            const messageDiv = document.createElement('div');
+            messageDiv.innerText = `${data.sender}: ${data.message}`;
+            document.getElementById('messages').appendChild(messageDiv);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight; // Scroll to bottom
+        });
+
+        // Save appointment logic
+        document.getElementById('saveAppointment').addEventListener('click', () => {
+            const date = document.getElementById('appointmentDate').value;
+            const time = document.getElementById('appointmentTime').value;
+
+            if (date && time) {
+                const appointmentDetails = `Appointment set for ${date} at ${time}`;
+                const appointmentDiv = document.createElement('div');
+                appointmentDiv.innerText = appointmentDetails;
+                document.getElementById('calendar').appendChild(appointmentDiv);
+
+                // Here, you can emit a socket event to save the appointment on the server if needed
+                socket.emit('save_appointment', { date, time });
+            } else {
+                alert('Please select both date and time for the appointment.');
+            }
+        });
+
+        // Optional: Logic to start a video call
+        document.getElementById('startVideoCall').addEventListener('click', () => {
+            window.location.href = `/video_call/${document.getElementById('recipientInput').value}`;
+        });
+    </script>
+</body>
+</html>

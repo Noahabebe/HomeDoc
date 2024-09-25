@@ -1,9 +1,16 @@
-from flask import Flask, render_template, request, redirect, session, url_for, flash
+from flask import Flask, render_template, request, redirect, session, url_for, flash, jsonify
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 import random
-
+from flask_socketio import SocketIO, emit
+from communication import communication_bp
+from database import DatabaseConnection
 app = Flask(__name__)
+
+app.register_blueprint(communication_bp, url_prefix='/communication')
+socketio = SocketIO(app)
+
+
 app.secret_key = "supersecretkey"
 
 # DatabaseConnection class (to be defined with methods add_doctor, add_patient, get_patients, get_doctors)
@@ -64,6 +71,10 @@ def search_and_download(doctor_name=None, cpso_number=None):
 def index():
     return render_template("index.html")
 
+def get_current_user():
+    # Assuming you are using session to store the logged-in user's username
+    return session.get('username')
+
 # Doctor search route
 @app.route("/doctor_search", methods=["GET", "POST"])
 def doctor_search():
@@ -80,24 +91,12 @@ def doctor_search():
             return redirect(url_for('doctor_search'))
 
         if results:
-            return redirect(url_for('results', doctor_name=doctor_name))
+            return render_template("results.html", doctors=results)
         else:
             flash("No matching doctors found.")
             return redirect(url_for('doctor_search'))
 
     return render_template("doctor_search.html")
-
-# Results route
-@app.route("/results", methods=["GET", "POST"])
-def results():
-    doctor_name = request.args.get('doctor_name')  
-    results = search_and_download(doctor_name=doctor_name)
-
-    if results:
-        return render_template("results.html", doctors=results)
-    else:
-        flash("No matching doctors found.")
-        return redirect(url_for('doctor_search'))
 
 # Edit signup route for doctors
 @app.route("/edit_signup", methods=["GET", "POST"])
@@ -132,7 +131,6 @@ def edit_signup():
         doctor_username=doctor_username,  # Render username in form
         doctor_password=doctor_password   # Render password in form
     )
-
 
 # Finalize doctor signup route
 @app.route("/finalize_signup", methods=["GET", "POST"])
@@ -207,7 +205,6 @@ def patient_login():
 
     return render_template("patient_login.html")
 
-
 # Dashboard route
 @app.route("/dashboard")
 def dashboard():
@@ -217,6 +214,7 @@ def dashboard():
     db = DatabaseConnection()
     user_type = session.get('user_type')
     username = session.get('username')
+    
     
     if user_type == 'doctor':
         user_info = db.get_doctor_by_username(username)
@@ -229,7 +227,6 @@ def dashboard():
         return render_template("dashboard.html", user_type=user_type, user_info=user_info, doctors=doctors)
 
     return "Error: Invalid user type"
-
 
 # Settings Route
 @app.route("/settings", methods=['GET', 'POST'])
@@ -269,7 +266,42 @@ def settings():
 
     return render_template("settings.html", user_info=user_info, user_type=user_type)
 
+@app.route('/message/<recipient_username>')
+def message(recipient_username):
+    current_user = get_current_user()
+    if not current_user:
+        return redirect(url_for('login'))
 
+    # Check if recipient is a valid username
+    db = DatabaseConnection()
+    user_type = session.get('user_type')
+    if user_type == 'doctor':
+        recipient_user = db.get_doctor_by_username(recipient_username)
+    else:
+        recipient_user = db.get_patient_by_username(recipient_username)
+    
+
+    # Render the message page with the recipient's username
+    return render_template('message.html', recipient_username=recipient_username)
+
+
+
+
+
+@socketio.on('offer')
+def handle_offer(data):
+    # Handle the received offer
+    socketio.emit('offer', data, broadcast=True)
+
+@socketio.on('answer')
+def handle_answer(data):
+    # Handle the received answer
+    socketio.emit('answer', data, broadcast=True)
+
+@socketio.on('ice_candidate')
+def handle_ice_candidate(data):
+    # Handle the received ICE candidate
+    socketio.emit('ice_candidate', data, broadcast=True)
 
 # Logout Route
 @app.route('/logout')
@@ -277,7 +309,5 @@ def logout():
     session.pop('username', None)  # Remove username from session
     return redirect(url_for('index'))  # Redirect to the home page
 
-
-
 if __name__ == "__main__":
-    app.run(debug=True)
+    socketio.run(app, debug=True)
