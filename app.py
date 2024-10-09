@@ -97,7 +97,7 @@ def search_and_download_ama(doctor_name=None, state=None):
         else:
             print("state argument not passed!")
 
-        # Click the "Search" button
+        # Click the "Search" button 
         page.click('input#edit-submit-api-search')
 
         # Wait for the search results to load (adjust the selector as needed based on the results section)
