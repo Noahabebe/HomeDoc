@@ -14,19 +14,68 @@
     {% block content %}
     <div class="container">
         <h1>Search for a Doctor</h1>
-        <!-- Corrected form action to use the 'doctor_search' route -->
         <form method="POST" action="{{ url_for('doctor_search') }}">
-            <label for="doctor_name">Doctor's Last Name:</label>
-            <input type="text" name="doctor_name" id="doctor_name" placeholder="Enter doctor's last name">
-            </br> <p>OR</p> </br>
-            <label for="cpso_number">CPSO Number:</label>
-            <input type="text" name="cpso_number" id="cpso_number" placeholder="Enter CPSO number">
+            <!-- Doctor's Last Name -->
+            <label for="doctor_name" class="doctor_name">Doctor's Last Name:</label>
+            <input type="text" name="doctor_name" id="doctor_name" class="doctor_name" placeholder="Enter doctor's last name">
+
+            <!-- Region Selection Dropdown (CPSO, AMA, etc.) -->
+            <label for="region">Select Region:</label>
+            <select name="region" id="region" required>
+                <option value="">Select a Region</option>
+                <option value="CPSO">Canada (CPSO)</option>
+                <option value="AMA">United States (AMA)</option>
+                <!-- Add other regions as needed -->
+                <option value="UK">United Kingdom (GMC)</option>
+                <option value="AHPRA">Australia (AHPRA)</option>
+            </select>
+
+            <!-- City or ZIP Code Input (Conditional for AMA) -->
+            <label for="state" class="state" style="display: none;">City/State Combination or ZIP Code:</label>
+            <input type="text" name="state" class="state" id="state" placeholder="Enter city or ZIP code" style="display: none;">
+
+            <!-- CPSO Specific Input -->
+            <label for="cpso_number" class="cpso_number" style="display: none;">CPSO Number (Canada):</label>
+            <input type="text" name="cpso_number" class="cpso_number" id="cpso_number" placeholder="Enter CPSO number" style="display: none;">
+
+            <!-- Add other conditional inputs for different regions -->
 
             <button type="submit">Search</button>
         </form>
         <p>Already have an account? <a href="{{ url_for('doctor_login') }}">Login as Doctor</a></p>
-
     </div>
+
+    <!-- JavaScript to Toggle Input Fields Based on Region Selection -->
+    <script>
+        document.getElementById('region').addEventListener('change', function() {
+            const region = this.value;
+            const cpsoSection = document.querySelectorAll('.cpso_number');
+            const stateSection = document.querySelectorAll('.state');
+            const DoctorName = document.querySelectorAll('.doctor_name');
+
+
+            // Show/Hide sections based on region
+            if (region === 'AMA') {
+                cpsoSection.forEach(el => el.style.display = 'none');
+                stateSection.forEach(el => el.style.display = 'block'); // Show location input
+                DoctorName.forEach(el => el.required= true);
+            } else if (region === 'CPSO') {
+                cpsoSection.forEach(el => el.style.display = 'block');
+                stateSection.forEach(el => el.style.display = 'none');
+                DoctorName.forEach(el => el.required = false);
+            } else if (region === 'AHPRA') {
+                stateSection.forEach(el => el.style.display = 'none');
+                cpsoSection.forEach(el => el.style.display = 'none');
+                DoctorName.forEach(el => el.required= true);
+            } else {
+                stateSection.forEach(el => el.style.display = 'none');
+                cpsoSection.forEach(el => el.style.display = 'none');
+                DoctorName.forEach(el => el.required= true);
+            }
+                
+        });
+    </script>
+
     {% endblock %}
 </body>
 </html>

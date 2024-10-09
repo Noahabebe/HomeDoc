@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "build": "playwright install && pip install -r requirements.txt"
+  }
+}

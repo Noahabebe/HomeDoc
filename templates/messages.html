@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <title>Messages</title>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-4">Messages</h1>
+
+        <h2 class="mt-4">Received Messages</h2>
+        <div class="list-group">
+            {% for msg in received_messages %}
+                <div class="list-group-item">
+                    <strong>From: {{ msg.sender }}</strong><br>
+                    <p>{{ msg.message }}</p>
+                    <small class="text-muted">{{ msg.timestamp }}</small>
+                </div>
+            {% else %}
+                <div class="list-group-item">No received messages.</div>
+            {% endfor %}
+        </div>
+
+        <h2 class="mt-4">Sent Messages</h2>
+        <div class="list-group">
+            {% for msg in sent_messages %}
+                <div class="list-group-item">
+                    <strong>To: {{ msg.receiver }}</strong><br>
+                    <p>{{ msg.message }}</p>
+                    <small class="text-muted">{{ msg.timestamp }}</small>
+                </div>
+            {% else %}
+                <div class="list-group-item">No sent messages.</div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

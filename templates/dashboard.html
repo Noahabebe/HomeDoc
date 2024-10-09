@@ -1,45 +1,103 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{ user_type.capitalize() }} Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-</head>
-<body>
-    {% extends "base.html" %}
-
-    {% block title %}Dashboard{% endblock %}
-
-    {% block content %}
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+  </head>
+  <body>
+    {% extends "base.html" %} {% block title %}Dashboard{% endblock %} {% block
+    content %}
     <div class="container">
+      <div class="dashboard-content">
+        <h1>Welcome to the {{ user_type.capitalize() }} Dashboard</h1>
 
-        <div class="dashboard-content">
-            <h1>Welcome to the {{ user_type.capitalize() }} Dashboard</h1>
+        {% if user_type == 'doctor' %}
+        <h2>Patients Signed Up:</h2>
+        <input
+          type="text"
+          id="patient-search"
+          placeholder="Search for patients by name"
+        />
+        <ul id="patient-list">
+          {% for patient in patients %}
+          <li class="patient-item" data-username="{{ patient.username }}">
+            <a
+              href="{{ url_for('message', recipient_username=patient.username) }}"
+              >{{ patient.name }}</a
+            >
+            - Contact: {{ patient.phone }}
+          </li>
 
-            {% if user_type == 'doctor' %}
-                <h2>Patients Signed Up:</h2>
-                <ul>
-                    {% for patient in patients %}
-                        <li>{{ patient.name }} - Contact: {{ patient.phone }}</li>
-                    {% else %}
-                        <p>No patients have signed up yet.</p>
-                    {% endfor %}
-                </ul>
+          {% else %}
+          <p>No patients have signed up yet.</p>
+          {% endfor %}
+        </ul>
 
-            {% elif user_type == 'patient' %}
-                <h2>Doctors Available:</h2>
-                <ul>
-                    {% for doctor in doctors %}
-                        <li>{{ doctor.name }} - {{ doctor.specialization }} - {{ doctor.location }}<br> Contact: {{ doctor.phone }}</li>
-                    {% else %}
-                        <p>No doctors have signed up yet.</p>
-                    {% endfor %}
-                </ul>
+        {% elif user_type == 'patient' %}
+        <h2>Doctors Available:</h2>
+        <input
+          type="text"
+          id="doctor-search"
+          placeholder="Search for doctors by name"
+        />
+        <ul id="doctor-list">
+          {% for doctor in doctors %}
+          <li class="doctor-item" data-username="{{ doctor.username }}">
+            <a
+              href="{{ url_for('message', recipient_username=doctor.username) }}"
+              >{{ doctor.name }} {{ doctor.username }}</a
+            >
+            - {{ doctor.specialization }} - {{ doctor.location }} Contact: {{
+            doctor.phone }}
+          </li>
+          {% else %}
+          <p>No doctors have signed up yet.</p>
+          {% endfor %}
+        </ul>
 
-            {% endif %}
-        </div>
+        {% endif %}
+      </div>
+
+      <div class="text-center mt-4">
+        <a href="{{ url_for('messages') }}" class="btn btn-primary"
+          >Go to Messages</a
+        >
+      </div>
     </div>
-{% endblock %}
-</body>
+
+    <script>
+      $(document).ready(function () {
+        // Function to filter the list based on the search input
+        function filterList(searchInput, listId) {
+          var query = searchInput.val().toLowerCase();
+          $(listId + " .list-item").each(function () {
+            var itemText = $(this).text().toLowerCase();
+            if (itemText.indexOf(query) === -1) {
+              $(this).hide();
+            } else {
+              $(this).show();
+            }
+          });
+        }
+
+        // Attach search functionality to the patient search input
+        $("#patient-search").on("input", function () {
+          filterList($(this), "#patient-list");
+        });
+
+        // Attach search functionality to the doctor search input
+        $("#doctor-search").on("input", function () {
+          filterList($(this), "#doctor-list");
+        });
+      });
+    </script>
+    {% endblock %}
+  </body>
 </html>
