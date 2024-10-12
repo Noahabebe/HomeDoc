@@ -6,6 +6,23 @@ from flask_socketio import SocketIO, emit
 from communication import communication_bp
 from database import DatabaseConnection
 import subprocess
+import hashlib
+
+id_mapping = {}
+
+def hash_id(user_id):
+    # Hash the user ID
+    hashed = hashlib.sha256(str(user_id).encode()).hexdigest()
+    
+    # Store the mapping
+    id_mapping[hashed] = user_id
+    
+    return hashed
+
+def unhash_id(hashed_id):
+    # Return the original user ID if the hashed ID exists in the mapping
+    return id_mapping.get(hashed_id, None)
+
 app = Flask(__name__)
 
 app.register_blueprint(communication_bp, url_prefix='/communication')
@@ -20,12 +37,6 @@ from database import DatabaseConnection
 # Function to search and download doctor info
 
 
-
-
-def search_and_download_gmc(doctor_name=None):
-    # Example implementation for GMC (UK)
-    # Add the scraping logic for GMC's website here
-    pass
 
 def search_and_download_ahpra(doctor_name=None):
     with sync_playwright() as playwright:
@@ -253,8 +264,6 @@ def doctor_search():
                 print("State is required for AMA!")
                 return render_template('doctor_search.html', error="State or ZIP code is required for AMA!")
             search_results = search_and_download_ama(doctor_name=doctor_name, state=state)
-        elif region == 'GMC':
-            search_results = search_and_download_gmc(doctor_name)
         elif region == 'AHPRA':
             search_results = search_and_download_ahpra(doctor_name=doctor_name)
         elif region == 'HPCSA':
@@ -320,7 +329,7 @@ def finalize_signup():
     db.add_doctor(doctor_name, doctor_phone, doctor_location, doctor_specialization, doctor_username, doctor_password)
 
     flash("Sign-up successful! Confirmation text sent.")
-    return redirect(url_for('dashboard', user_type='doctor'))
+    return redirect(url_for('doctor_login'))
 
 # Sign up route for patients
 @app.route("/patient_signup", methods=["GET", "POST"])
@@ -330,9 +339,10 @@ def patient_signup():
         patient_phone = request.form.get('patient_phone')
         patient_username = request.form.get('patient_username')
         patient_password = request.form.get('patient_password')
+        symptoms = request.form['symptoms']
 
         db = DatabaseConnection()
-        db.add_patient(patient_name, patient_phone, patient_username, patient_password)
+        db.add_patient(patient_name, patient_phone, patient_username, patient_password, symptoms)
 
         flash("Sign-up successful!")
         return redirect(url_for('dashboard', user_type='patient'))
@@ -379,7 +389,6 @@ def patient_login():
 
     return render_template("patient_login.html")
 
-# Dashboard route
 @app.route("/dashboard")
 def dashboard():
     if 'username' not in session:
@@ -388,26 +397,158 @@ def dashboard():
     db = DatabaseConnection()
     user_type = session.get('user_type')
     username = session.get('username')
-    
-    
+
+
+
     if user_type == 'doctor':
-        user_info = db.get_doctor_by_username(username)
         patients = db.get_patients()
-        return render_template("dashboard.html", user_type=user_type, user_info=user_info, patients=patients)
+        for patient in patients:
+         patient['hashed_id'] = hash_id(patient['id'])
+        return render_template('dashboard.html', patients=patients, user_type='doctor', username=username, id1=patient['hashed_id'])
+    elif user_type == 'patient':
+        doctors = db.get_doctors()
+        for doctor in doctors:
+         doctor['hashed_id'] = hash_id(doctor['id'])
+        return render_template('dashboard.html', doctors=doctors, user_type='patient', username=username, id1=doctor['hashed_id'])
+    return redirect(url_for('login'))
+
+@app.route('/message/<recipient_id>', methods=['GET'])
+def message(recipient_id):
+    current_username = session.get('username')
+    user_type = session.get('user_type')
+
+    actual_recipient_id = unhash_id(recipient_id)
+    # Fetch recipient's details from the database
+    db = DatabaseConnection()
+    recipient_details = db.get_contact_details(actual_recipient_id, user_type)
+    
+    # Check privacy settings
+    if db.is_privacy_off_for_both(current_username, recipient_details['username']):
+         recipient_display_name = recipient_details['name']
+    else:
+
+        recipient_display_name = recipient_id
+       
+
+    return render_template('message.html', 
+                           recipient_username=recipient_display_name,
+                           user_id=current_username)
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    sender_id = request.json.get('sender_id')
+
+    recipient_id = request.json.get('recipient_id')
+    message = request.json.get('message')
+    user_type = session.get('user_type')
+    db = DatabaseConnection()
+    actual_sender_id = unhash_id(sender_id)
+    actual_recipient_id = unhash_id(recipient_id)
+
+    
+    if not (db.is_privacy_off_for_both(actual_sender_id, actual_recipient_id)):
+
+       
+       
+        sender_details = db.get_contact_details(actual_sender_id, user_type)
+        recipient_details = db.get_contact_details(actual_recipient_id, user_type)
+
+        hashed_sender_id = hash_id(sender_details['id'])
+        hashed_recipient_id = hash_id(recipient_details['id'])
+
+       
+        emit('receive_message', {
+            'sender': hashed_sender_id,
+            'message': message
+        }, room=hashed_recipient_id)
+
+    else:
+        # Privacy disabled, use real usernames
+        sender_name = db.get_contact_details(actual_sender_id, user_type)['name']
+        recipient_name = db.get_contact_details(actual_recipient_id, user_type)['name']
+
+        # Emit the message with real usernames via Socket.IO
+        emit('receive_message', {
+            'sender': sender_name,
+            'message': message
+        }, room=recipient_name)
+
+    return jsonify({'status': 'Message sent successfully'}), 200
+
+
+@app.route('/match_doctors', methods=['POST'])
+def match_doctors():
+    db = DatabaseConnection()
+    price_min = request.form.get('price_min')
+    price_max = request.form.get('price_max')
+    doctors = db.match_doctors_anonymous(price_min, price_max)
+    return jsonify(doctors)
+
+
+# Privacy Toggle Route
+@app.route('/toggle_privacy', methods=['POST'])
+def toggle_privacy():
+    db = DatabaseConnection()
+    username = session.get('username')
+    user_type = session.get('user_type')
+    if user_type == 'doctor':
+        privacy_status = db.toggle_doctor_privacy(username)
 
     elif user_type == 'patient':
-        user_info = db.get_patient_by_username(username)
-        doctors = db.get_doctors()
-        return render_template("dashboard.html", user_type=user_type, user_info=user_info, doctors=doctors)
+        privacy_status = db.toggle_patient_privacy(username)
 
-    return "Error: Invalid user type"
+    return jsonify({'status': 'success', 'privacy': privacy_status})
+
+
+@app.route('/check_privacy_status', methods=['POST'])
+def check_privacy_status():
+    db = DatabaseConnection()
+    data = request.json
+    sender = data.get('sender')
+    recipient = data.get('recipient')
+    user_type = session.get('user_type')
+    # Check if both parties have privacy off
+    actual_recipient = unhash_id(recipient)
+    if db.is_privacy_off_for_both(sender, actual_recipient):
+        # Privacy is off, return contact details
+        contact_details = db.get_contact_details(actual_recipient, user_type)
+        return jsonify({'status': 'unlocked', 'details': contact_details})
+    else:
+        # Privacy still enabled, only messaging allowed
+        return jsonify({'status': 'locked'})
+
+
+
+
+# Video Call Route
+@app.route('/start_video_call', methods=['POST'])
+def start_video_call():
+    db = DatabaseConnection()
+
+    sender = request.json.get('sender')
+    recipient = request.json.get('recipient')
+    actual_sender= unhash_id(sender)
+    actual_recipient = unhash_id(recipient)
+
+    if db.is_privacy_off_for_both(actual_sender, actual_recipient):
+        return jsonify({'status': 'success', 'message': 'You can start a video call.'})
+    else:
+        return jsonify({'status': 'error', 'message': 'Both parties must disable privacy for video call.'})
+
+
+@app.route('/video_call/<recipient>')
+def video_call(recipient):
+    sender = session.get('username')
+    recipient = unhash_id(recipient)
+    return render_template('video_call.html', sender=sender, recipient=recipient)
+
 
 # Settings Route
 @app.route("/settings", methods=['GET', 'POST'])
 def settings():
     if 'username' not in session:
-        return redirect(url_for('login'))  # Redirect to login if not logged in
-    
+        return redirect(url_for('login'))
+
     db = DatabaseConnection()
     current_username = session.get('username')
     user_type = session.get('user_type')
@@ -428,62 +569,67 @@ def settings():
         # Update user info in the database
         if user_type == 'doctor':
             specialization = request.form.get('specialization')
-            db.update_doctor_info(current_username, name, phone, new_username, new_password, specialization)  # Adjust based on your method
+            db.update_doctor_info(current_username, name, phone, new_username, new_password, specialization)
         else:
-            db.update_patient_info(current_username, name, phone, new_username, new_password)  # Adjust based on your method
+            db.update_patient_info(current_username, name, phone, new_username, new_password)
 
         # Update session username if it has changed
         if new_username != current_username:
             session['username'] = new_username
 
-        return redirect(url_for('dashboard'))  # Redirect to dashboard after update
+        return redirect(url_for('dashboard'))
 
     return render_template("settings.html", user_info=user_info, user_type=user_type)
 
-@app.route('/message/<recipient_username>')
-def message(recipient_username):
-    current_user = get_current_user()
-    if not current_user:
-        return redirect(url_for('login'))
 
-    # Check if recipient is a valid username
-    db = DatabaseConnection()
+# Socket.IO events for messaging
+@socketio.on('send_message')
+def handle_message(data):
+    sender = data['sender']
+    recipient = data['recipient']
+    message = data['message']
     user_type = session.get('user_type')
-    if user_type == 'doctor':
-        recipient_user = db.get_doctor_by_username(recipient_username)
+    db = DatabaseConnection()
+    actual_sender= unhash_id(sender)
+    actual_recipient = unhash_id(recipient)
+
+    if not (db.is_privacy_off_for_both(actual_sender, actual_recipient)):
+        # Privacy is enabled: Send anonymous message
+        sender_id = db.get_contact_details(actual_sender, user_type)['id']
+        hash_sender_id = hash_id(sender_id)
+
+        emit('receive_message', {'sender': hash_sender_id, 'message': message}, room=recipient)
     else:
-        recipient_user = db.get_patient_by_username(recipient_username)
-    
-
-    # Render the message page with the recipient's username
-    return render_template('message.html', recipient_username=recipient_username)
+        # Privacy is disabled: Send real message
+        sender_name = db.get_contact_details(actual_sender, user_type)['name']
+        emit('receive_message', {'sender': sender_name, 'message': message}, room=recipient)
 
 
 
-@app.route('/messages')
-def messages():
-    return render_template('messages.html')
+
+
 
 @socketio.on('offer')
 def handle_offer(data):
-    # Handle the received offer
     socketio.emit('offer', data, broadcast=True)
+
 
 @socketio.on('answer')
 def handle_answer(data):
-    # Handle the received answer
     socketio.emit('answer', data, broadcast=True)
+
 
 @socketio.on('ice_candidate')
 def handle_ice_candidate(data):
-    # Handle the received ICE candidate
     socketio.emit('ice_candidate', data, broadcast=True)
+
 
 # Logout Route
 @app.route('/logout')
 def logout():
-    session.pop('username', None)  # Remove username from session
-    return redirect(url_for('index'))  # Redirect to the home page
+    session.pop('username', None)
+    return redirect(url_for('index'))
+
 
 if __name__ == "__main__":
     socketio.run(app, debug=True, allow_unsafe_werkzeug=True)

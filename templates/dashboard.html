@@ -1,103 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ user_type.capitalize() }} Dashboard</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
-  </head>
-  <body>
-    {% extends "base.html" %} {% block title %}Dashboard{% endblock %} {% block
-    content %}
+</head>
+<body>
+    {% extends "base.html" %}
+    {% block title %}Dashboard{% endblock %}
+    {% block content %}
     <div class="container">
-      <div class="dashboard-content">
-        <h1>Welcome to the {{ user_type.capitalize() }} Dashboard</h1>
+        <div class="dashboard-content">
+            <h1>Welcome to the {{ user_type.capitalize() }} Dashboard</h1>
+            <button id="toggle-privacy">Toggle Privacy</button>
 
-        {% if user_type == 'doctor' %}
-        <h2>Patients Signed Up:</h2>
-        <input
-          type="text"
-          id="patient-search"
-          placeholder="Search for patients by name"
-        />
-        <ul id="patient-list">
-          {% for patient in patients %}
-          <li class="patient-item" data-username="{{ patient.username }}">
-            <a
-              href="{{ url_for('message', recipient_username=patient.username) }}"
-              >{{ patient.name }}</a
-            >
-            - Contact: {{ patient.phone }}
-          </li>
+            {% if user_type == 'doctor' %}
+                <h2>Patients:</h2>
+                <ul id="patient-list">
+                    {% for patient in patients %}
+                        <li>
+                            {% if patient.privacy_status == 'off' %}
+                                {{ patient.name }} (Symptoms: {{ patient.symptoms }})
+                            {% else %}
+                                Anonymous Patient (Symptoms: {{ patient.symptoms }})
+                            {% endif %}
+                            <a class="message-btn" href="{{ url_for('message', recipient_id=id1) }}">Message</a>
+                            <a class="video-call-btn" data-recipient="{{ id1 }}" class="disabled">Video Call</a>
+                        </li>
+                    {% endfor %}
+                </ul>
 
-          {% else %}
-          <p>No patients have signed up yet.</p>
-          {% endfor %}
-        </ul>
-
-        {% elif user_type == 'patient' %}
-        <h2>Doctors Available:</h2>
-        <input
-          type="text"
-          id="doctor-search"
-          placeholder="Search for doctors by name"
-        />
-        <ul id="doctor-list">
-          {% for doctor in doctors %}
-          <li class="doctor-item" data-username="{{ doctor.username }}">
-            <a
-              href="{{ url_for('message', recipient_username=doctor.username) }}"
-              >{{ doctor.name }} {{ doctor.username }}</a
-            >
-            - {{ doctor.specialization }} - {{ doctor.location }} Contact: {{
-            doctor.phone }}
-          </li>
-          {% else %}
-          <p>No doctors have signed up yet.</p>
-          {% endfor %}
-        </ul>
-
-        {% endif %}
-      </div>
-
-      <div class="text-center mt-4">
-        <a href="{{ url_for('messages') }}" class="btn btn-primary"
-          >Go to Messages</a
-        >
-      </div>
+            {% elif user_type == 'patient' %}
+                <h2>Doctors:</h2>
+                <ul id="doctor-list">
+                    {% for doctor in doctors %}
+                        <li>
+                            {% if doctor.privacy_status == 'off' %}
+                                Dr. {{ doctor.name }} (Specialization: {{ doctor.specialization }})
+                            {% else %}
+                                Anonymous Doctor (Specialization: {{ doctor.specialization }})
+                            {% endif %}
+                            <a class="message-btn" href="{{ url_for('message', recipient_id=id1) }}">Message</a>
+                            <a class="video-call-btn" data-recipient="{{ id1 }}" class="disabled">Video Call</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+        </div>
     </div>
 
     <script>
-      $(document).ready(function () {
-        // Function to filter the list based on the search input
-        function filterList(searchInput, listId) {
-          var query = searchInput.val().toLowerCase();
-          $(listId + " .list-item").each(function () {
-            var itemText = $(this).text().toLowerCase();
-            if (itemText.indexOf(query) === -1) {
-              $(this).hide();
-            } else {
-              $(this).show();
+        $(document).ready(function() {
+            const currentUser = "{{ username }}"; // Assuming the current username is passed in template context
+
+            // Toggle privacy for the current user
+            $('#toggle-privacy').click(function() {
+                $.post('/toggle_privacy', function(response) {
+                    alert('Privacy settings updated');
+                    // Check new privacy status to enable/disable video call buttons
+                    checkPrivacyStatus();
+                });
+            });
+
+            // Function to check privacy status and enable/disable video call buttons
+            function checkPrivacyStatus() {
+                $('.video-call-btn').each(function() {
+                    const recipient = $(this).data('recipient');
+                    
+                    $.post('/check_privacy_status', { sender: currentUser, recipient: recipient }, function(data) {
+                        if (data.status === 'unlocked') {
+                            $(this).removeClass('disabled').attr('href', "{{ url_for('video_call', recipient='') }}" + recipient); // Set the link
+                        } else {
+                            $(this).addClass('disabled').removeAttr('href'); // Disable the link
+                        }
+                    }.bind(this));
+                });
             }
-          });
-        }
 
-        // Attach search functionality to the patient search input
-        $("#patient-search").on("input", function () {
-          filterList($(this), "#patient-list");
+            // Initial check for video call buttons on page load
+            checkPrivacyStatus();
         });
-
-        // Attach search functionality to the doctor search input
-        $("#doctor-search").on("input", function () {
-          filterList($(this), "#doctor-list");
-        });
-      });
     </script>
     {% endblock %}
-  </body>
+</body>
 </html>

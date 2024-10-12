@@ -4,9 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Message</title>
-    <link rel="stylesheet" href="path/to/bootstrap.css">
-    <script src="path/to/jquery.js"></script>
-    <script src="path/to/socket.io.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
 </head>
 <body>
     <div class="container">
@@ -33,28 +34,44 @@
     </div>
 
     <script>
-        // Live updates using Socket.io
         const socket = io();
 
-        // Function to send a message
         document.getElementById('sendMessage').addEventListener('click', () => {
-            const message = document.getElementById('messageInput').value;
+        const message = document.getElementById('messageInput').value;
+        const recipient = document.getElementById('recipientInput').value;
 
-            if (message.trim() !== '') {
-                socket.emit('send_message', { recipient: document.getElementById('recipientInput').value, message });
-                document.getElementById('messageInput').value = ''; // Clear input
+        if (message.trim() !== '') {
+            // Send message to the Flask backend via POST request
+            $.ajax({
+                url: '/send_message',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    sender_id: "{{ user_id }}",  // Use the sender's ID from Flask
+                    recipient_id: recipient,
+                    message: message
+                }),
+                success: function(response) {
+                    console.log('Message sent successfully:', response);
+                    document.getElementById('messageInput').value = '';
+                },
+                error: function(error) {
+                    console.log('Error sending message:', error);
+                }
+                });
             }
         });
 
-        // Listen for incoming messages
+
+        // Receiving messages
         socket.on('receive_message', (data) => {
             const messageDiv = document.createElement('div');
             messageDiv.innerText = `${data.sender}: ${data.message}`;
             document.getElementById('messages').appendChild(messageDiv);
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight; // Scroll to bottom
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         });
 
-        // Save appointment logic
+        // Save appointment
         document.getElementById('saveAppointment').addEventListener('click', () => {
             const date = document.getElementById('appointmentDate').value;
             const time = document.getElementById('appointmentTime').value;
@@ -65,14 +82,14 @@
                 appointmentDiv.innerText = appointmentDetails;
                 document.getElementById('calendar').appendChild(appointmentDiv);
 
-                // Here, you can emit a socket event to save the appointment on the server if needed
+                // Emit event to save appointment on server
                 socket.emit('save_appointment', { date, time });
             } else {
                 alert('Please select both date and time for the appointment.');
             }
         });
 
-        // Optional: Logic to start a video call
+        // Start video call
         document.getElementById('startVideoCall').addEventListener('click', () => {
             window.location.href = `/video_call/${document.getElementById('recipientInput').value}`;
         });

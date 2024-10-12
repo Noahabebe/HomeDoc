@@ -4,6 +4,7 @@ class DatabaseConnection:
     def __init__(self, db_name='app_database.db'):
         # Establish connection to the SQLite database
         self.connection = sqlite3.connect(db_name)
+        self.connection.row_factory = sqlite3.Row  # Set row factory to return rows as dictionaries
         self.cursor = self.connection.cursor()
         self.create_tables()
 
@@ -18,8 +19,10 @@ class DatabaseConnection:
                 specialization TEXT,
                 username TEXT UNIQUE NOT NULL,
                 password TEXT NOT NULL,
-                confirmed BOOLEAN DEFAULT FALSE
+                confirmed BOOLEAN DEFAULT FALSE,
+                privacy BOOLEAN DEFAULT TRUE
             )
+
         ''')
 
         self.cursor.execute('''        
@@ -28,8 +31,11 @@ class DatabaseConnection:
                 name TEXT NOT NULL,
                 phone TEXT NOT NULL,
                 username TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL
+                password TEXT NOT NULL,
+                symptoms TEXT,
+                privacy BOOLEAN DEFAULT TRUE
             )
+
         ''')
 
         self.cursor.execute(''' 
@@ -58,8 +64,7 @@ class DatabaseConnection:
 
     def add_doctor(self, name, phone, location, specialization, username, password):
         # Validate input
-        if not name or not phone or not username or not password:
-            raise ValueError("Doctor's name, phone, username, and password cannot be empty.")
+       
 
         try:
             self.cursor.execute('''        
@@ -71,16 +76,15 @@ class DatabaseConnection:
             print(f"Error inserting doctor: {e}")
             raise
 
-    def add_patient(self, name, phone, username, password):
-        # Validate input
-        if not name or not phone or not username or not password:
-            raise ValueError("Patient's name, phone, username, and password cannot be empty.")
+    def add_patient(self, name, phone, username, password, symptoms):
+    # Validate input
+       
 
         try:
             self.cursor.execute('''        
-                INSERT INTO patients (name, phone, username, password) 
-                VALUES (?, ?, ?, ?)
-            ''', (name, phone, username, password))
+                INSERT INTO patients (name, phone, username, password, symptoms) 
+                VALUES (?, ?, ?, ?, ?)
+            ''', (name, phone, username, password, symptoms))  # Add symptoms here
             self.connection.commit()
         except sqlite3.IntegrityError as e:
             print(f"Error inserting patient: {e}")
@@ -114,16 +118,12 @@ class DatabaseConnection:
         return [{'sender': msg[0], 'receiver': msg[1], 'message': msg[2], 'timestamp': msg[3]} for msg in messages]
 
     def get_doctors(self):
-        # Retrieve confirmed doctors
-        self.cursor.execute('SELECT id, name, phone, location, specialization FROM doctors WHERE confirmed = 1')
-        doctors = self.cursor.fetchall()
-        return [{'id': doc[0], 'name': doc[1], 'phone': doc[2], 'location': doc[3], 'specialization': doc[4]} for doc in doctors]
+        query = "SELECT id, username, name, specialization, location, phone FROM doctors"
+        return self._execute_query(query)
 
     def get_patients(self):
-        # Retrieve all patients
-        self.cursor.execute('SELECT id, name, phone, username FROM patients')
-        patients = self.cursor.fetchall()
-        return [{'id': pat[0], 'name': pat[1], 'phone': pat[2], 'username': pat[3]} for pat in patients]
+        query = "SELECT id, username, name, phone, symptoms FROM patients"
+        return self._execute_query(query)
 
     def get_doctor_by_username(self, username):
         # Fetch doctor details by username
@@ -149,7 +149,11 @@ class DatabaseConnection:
 
     def update_doctor_info(self, current_username, name, phone, new_username, new_password, specialization):
         # Update doctor information
-        query = "UPDATE doctors SET username = ?, name = ?, phone = ?, password = ?, specialization = ? WHERE username = ?"
+        query = ''' 
+            UPDATE doctors 
+            SET username = ?, name = ?, phone = ?, password = ?, specialization = ? 
+            WHERE username = ?
+        '''
         values = (new_username, name, phone, new_password, specialization, current_username)
         self.cursor.execute(query, values)
         self.connection.commit()
@@ -157,17 +161,74 @@ class DatabaseConnection:
     def update_patient_info(self, username, name, phone):
         # Update patient information
         try:
-            sql = """
-            UPDATE patients
-            SET name = ?, phone = ?
-            WHERE username = ?
-            """
+            sql = ''' 
+            UPDATE patients 
+            SET name = ?, phone = ? 
+            WHERE username = ? 
+            '''
             self.cursor.execute(sql, (name, phone, username))
             self.connection.commit()
         except Exception as e:
             print(f"An error occurred: {e}")
             self.connection.rollback()
 
+    def get_contact_details(self, identifier, user_type):
+        if user_type == 'doctor':
+            # Query for doctors
+            query_username = '''SELECT id, username, name FROM doctors WHERE username = ?'''
+            query_id = '''SELECT id, username, name FROM doctors WHERE id = ?'''
+            
+            # First, check if the identifier matches a username
+            result = self.cursor.execute(query_username, (identifier,))
+            user_details = result.fetchone()  # Use fetchone to get a single row
+            
+            if user_details:
+                return {
+                    'id': user_details['id'],        # Access by column name
+                    'username': user_details['username'],   # Access by column name
+                    'name': user_details['name']        # Access by column name
+                }
+
+            # Check if the identifier matches an ID
+            result = self.cursor.execute(query_id, (identifier,))
+            user_details = result.fetchone()
+            
+            if user_details:
+                return {
+                    'id': user_details['id'],         # Access by column name
+                    'username': user_details['username'],    # Access by column name
+                    'name': user_details['name']         # Access by column name
+                }
+
+        else:  # Assuming user_type is 'patient'
+            # Query for patients
+            query_username = '''SELECT id, username, name FROM patients WHERE username = ?'''
+            query_id = '''SELECT id, username, name FROM patients WHERE id = ?'''
+
+            # First, check if the identifier matches a username
+            result = self.cursor.execute(query_username, (identifier,))
+            user_details = result.fetchone()  # Use fetchone to get a single row
+            
+            if user_details:
+                return {
+                    'id': user_details['id'],        # Access by column name
+                    'username': user_details['username'],   # Access by column name
+                    'name': user_details['name']        # Access by column name
+                }
+
+            # Check if the identifier matches an ID
+            result = self.cursor.execute(query_id, (identifier,))
+            user_details = result.fetchone()
+            
+            if user_details:
+                return {
+                    'id': user_details['id'],         # Access by column name
+                    'username': user_details['username'],    # Access by column name
+                    'name': user_details['name']         # Access by column name
+                }
+
+        return None
+    
     def add_calendar_event(self, username, time, day, month, year):
         # Validate input
         if not username or not time or not day or not month or not year:
@@ -214,6 +275,60 @@ class DatabaseConnection:
         ''', (doctor_id,))
         self.connection.commit()
 
+    def get_patients_anonymous(self):
+        query = "SELECT 'Anonymous' AS name, symptoms FROM patients WHERE privacy = 1"
+        return self._execute_query(query)
+
+    # Fetch doctors anonymously (showing only specialization)
+    def get_doctors_anonymous(self):
+        query = "SELECT 'Anonymous' AS name, specialization FROM doctors WHERE privacy = 1"
+        return self._execute_query(query)
+
+    # Match doctors based on price range and anonymity
+    def match_doctors_anonymous(self, price_min, price_max):
+        query = '''
+            SELECT 'Anonymous' AS name, specialization 
+            FROM doctors 
+            WHERE price >= ? AND price <= ? AND privacy = 1
+        '''
+        return self._execute_query(query, (price_min, price_max))
+
+    # Toggle doctor privacy
+    def toggle_doctor_privacy(self, doctor_username):
+        query = "UPDATE doctors SET privacy = NOT privacy WHERE username = ? RETURNING privacy"
+        result = self._execute_query(query, (doctor_username,))
+        return result[0]['privacy']
+
+    # Toggle patient privacy
+    def toggle_patient_privacy(self, patient_username):
+        query = "UPDATE patients SET privacy = NOT privacy WHERE username = ? RETURNING privacy"
+        result = self._execute_query(query, (patient_username,))
+        return result[0]['privacy']
+
+    # Check if privacy is off for both parties
+    def is_privacy_off_for_both(self, sender_username, recipient_username):
+        # Check sender and recipient privacy
+        sender_privacy = self.get_privacy_status(sender_username)
+        recipient_privacy = self.get_privacy_status(recipient_username)
+
+        return sender_privacy  and recipient_privacy  # Both must have privacy off
+
+    # Get privacy status of a user
+    def get_privacy_status(self, username):
+        self.cursor.execute('SELECT privacy FROM doctors WHERE username = ? UNION SELECT privacy FROM patients WHERE username = ?', (username, username))
+        return self.cursor.fetchone()
+
+    # Helper method to execute queries
+    def _execute_query(self, query, params=None):
+        if params:
+            self.cursor.execute(query, params)
+        else:
+            self.cursor.execute(query)
+        return [dict(zip([column[0] for column in self.cursor.description], row)) for row in self.cursor.fetchall()]
+
     def close(self):
         # Close the database connection
         self.connection.close()
+
+if __name__ == "__main__":
+    db = DatabaseConnection()
