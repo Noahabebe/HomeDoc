@@ -60,6 +60,21 @@ class DatabaseConnection:
             )
         ''')
 
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS id_mapping_patients (
+                hashed_id TEXT PRIMARY KEY,
+                original_id INTEGER NOT NULL
+            )
+        ''')
+
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS id_mapping_doctors (
+                hashed_id TEXT PRIMARY KEY,
+                original_id INTEGER NOT NULL
+            )
+        ''')
+
+
         self.connection.commit()
 
     def add_doctor(self, name, phone, location, specialization, username, password):
@@ -200,7 +215,7 @@ class DatabaseConnection:
                     'name': user_details['name']         # Access by column name
                 }
 
-        else:  # Assuming user_type is 'patient'
+        elif user_type == 'patient':  # Assuming user_type is 'patient'
             # Query for patients
             query_username = '''SELECT id, username, name FROM patients WHERE username = ?'''
             query_id = '''SELECT id, username, name FROM patients WHERE id = ?'''
@@ -311,7 +326,9 @@ class DatabaseConnection:
         sender_privacy = self.get_privacy_status(sender_username)
         recipient_privacy = self.get_privacy_status(recipient_username)
 
-        return sender_privacy  and recipient_privacy  # Both must have privacy off
+        return sender_privacy == 0 and recipient_privacy == 0  # Both must have privacy off
+    
+    
 
     # Get privacy status of a user
     def get_privacy_status(self, username):
@@ -322,8 +339,10 @@ class DatabaseConnection:
     def _execute_query(self, query, params=None):
         if params:
             self.cursor.execute(query, params)
+            self.connection.commit()
         else:
             self.cursor.execute(query)
+            self.connection.commit()
         return [dict(zip([column[0] for column in self.cursor.description], row)) for row in self.cursor.fetchall()]
 
     def close(self):

@@ -8,34 +8,69 @@ from database import DatabaseConnection
 import subprocess
 import hashlib
 
-id_mapping = {}
-
-def hash_id(user_id):
-    # Hash the user ID
-    hashed = hashlib.sha256(str(user_id).encode()).hexdigest()
-    
-    # Store the mapping
-    id_mapping[hashed] = user_id
-    
-    return hashed
-
-def unhash_id(hashed_id):
-    # Return the original user ID if the hashed ID exists in the mapping
-    return id_mapping.get(hashed_id, None)
-
 app = Flask(__name__)
 
 app.register_blueprint(communication_bp, url_prefix='/communication')
 socketio = SocketIO(app)
 
 
-app.secret_key = "supersecretkey"
+app.secret_key = "jfuytetryetruytryu"
 
 # DatabaseConnection class (to be defined with methods add_doctor, add_patient, get_patients, get_doctors)
 from database import DatabaseConnection
 
 # Function to search and download doctor info
 
+def save_id_mapping(hashed_id, original_id, user_type):
+    db = DatabaseConnection()
+    if user_type == 'patient':
+        query = "INSERT INTO id_mapping_patients (hashed_id, original_id) VALUES (?, ?)"
+        
+    elif user_type == 'doctor':
+        query = "INSERT INTO id_mapping_doctors (hashed_id, original_id) VALUES (?, ?)"
+    else:
+        raise ValueError("Invalid user type")
+
+    try:
+        db._execute_query(query, (hashed_id, original_id,))
+        print(f"Inserted into id_mapping_{user_type}s: {hashed_id} -> {original_id}")
+    except Exception as e:
+        print(f"Error inserting into id_mapping_{user_type}s: {e}")
+
+def get_original_id(hashed_id, user_type):
+    db = DatabaseConnection()
+    if user_type == 'patient':
+        query = "SELECT original_id FROM id_mapping_patients WHERE hashed_id = ?"
+    elif user_type == 'doctor':
+        query = "SELECT original_id FROM id_mapping_doctors WHERE hashed_id = ?"
+    else:
+        raise ValueError("Invalid user type")
+
+    
+    result = db._execute_query(query, (hashed_id,))
+    print(f"Retrieved from id_mapping_{user_type}s for {hashed_id}: {result}")
+    
+    if result and len(result) > 0:
+            print('Returned: ' + str(result[0]))
+            return result[0] # Return the original ID
+    else:
+            print(f"No original ID found for hashed ID: {hashed_id}")
+            return None
+   
+
+def hash_id(user_id, user_type):
+    print(f'Hashing user_id: {user_id} for {user_type}')
+    hashed = hashlib.sha256(str(user_id).encode()).hexdigest()
+    
+    # Save to the appropriate database table
+    save_id_mapping(hashed, user_id, user_type)
+    
+    print(f'Added to id_mapping: {hashed} -> {user_id}')
+    return hashed
+
+def unhash_id(hashed_id, user_type):
+    # Get the original ID from the appropriate database table
+    return get_original_id(hashed_id, user_type)
 
 
 def search_and_download_ahpra(doctor_name=None):
@@ -327,6 +362,7 @@ def finalize_signup():
 
     db = DatabaseConnection()
     db.add_doctor(doctor_name, doctor_phone, doctor_location, doctor_specialization, doctor_username, doctor_password)
+    
 
     flash("Sign-up successful! Confirmation text sent.")
     return redirect(url_for('doctor_login'))
@@ -391,43 +427,65 @@ def patient_login():
 
 @app.route("/dashboard")
 def dashboard():
+    # Check if the user is logged in
     if 'username' not in session:
-        return redirect(url_for('doctor_login' if session.get('user_type') == 'doctor' else 'patient_login'))
+        return redirect(url_for('patient_login'))  # Use a common login redirect first
 
     db = DatabaseConnection()
     user_type = session.get('user_type')
     username = session.get('username')
 
-
-
     if user_type == 'doctor':
+        # Fetch patients for a doctor
         patients = db.get_patients()
         for patient in patients:
-         patient['hashed_id'] = hash_id(patient['id'])
-        return render_template('dashboard.html', patients=patients, user_type='doctor', username=username, id1=patient['hashed_id'])
+            patient['hashed_id'] = hash_id(patient['id'], user_type)  # Hash the patient ID
+        # Render the dashboard with patient information
+        return render_template('dashboard.html', 
+                               patients=patients, 
+                               user_type='doctor', 
+                               username=username)
+    
     elif user_type == 'patient':
+        # Fetch doctors for a patient
         doctors = db.get_doctors()
         for doctor in doctors:
-         doctor['hashed_id'] = hash_id(doctor['id'])
-        return render_template('dashboard.html', doctors=doctors, user_type='patient', username=username, id1=doctor['hashed_id'])
-    return redirect(url_for('login'))
+            doctor['hashed_id'] = hash_id(doctor['id'], user_type)  # Hash the doctor ID
+        # Render the dashboard with doctor information
+        return render_template('dashboard.html', 
+                               doctors=doctors, 
+                               user_type='patient', 
+                               username=username)
+
+    # If user type is invalid, redirect to login
+    return redirect(url_for('/'))
 
 @app.route('/message/<recipient_id>', methods=['GET'])
 def message(recipient_id):
+    if 'username' not in session:
+        return redirect(url_for('index'))
+    
     current_username = session.get('username')
     user_type = session.get('user_type')
 
-    actual_recipient_id = unhash_id(recipient_id)
+    print(recipient_id)
+
+    actual_recipient_id = unhash_id(recipient_id, user_type)
+
+    
     # Fetch recipient's details from the database
     db = DatabaseConnection()
-    recipient_details = db.get_contact_details(actual_recipient_id, user_type)
+
+    recipient_details = db.get_contact_details(actual_recipient_id['original_id'], user_type)
+
     
     # Check privacy settings
     if db.is_privacy_off_for_both(current_username, recipient_details['username']):
-         recipient_display_name = recipient_details['name']
+        recipient_display_name= recipient_details['username']
+        
     else:
-
         recipient_display_name = recipient_id
+        # If the user is messaging themselves
        
 
     return render_template('message.html', 
@@ -436,25 +494,25 @@ def message(recipient_id):
 
 @app.route('/send_message', methods=['POST'])
 def send_message():
-    sender_id = request.json.get('sender_id')
+    sender_id = session.get('username')
 
     recipient_id = request.json.get('recipient_id')
     message = request.json.get('message')
     user_type = session.get('user_type')
     db = DatabaseConnection()
-    actual_sender_id = unhash_id(sender_id)
-    actual_recipient_id = unhash_id(recipient_id)
+
+
 
     
-    if not (db.is_privacy_off_for_both(actual_sender_id, actual_recipient_id)):
+    if not (db.is_privacy_off_for_both(sender_id, recipient_id)):
 
        
        
-        sender_details = db.get_contact_details(actual_sender_id, user_type)
-        recipient_details = db.get_contact_details(actual_recipient_id, user_type)
+        sender_details = db.get_contact_details(sender_id, user_type)
+        recipient_details = db.get_contact_details(recipient_id, user_type)
 
-        hashed_sender_id = hash_id(sender_details['id'])
-        hashed_recipient_id = hash_id(recipient_details['id'])
+        hashed_sender_id = hash_id(sender_details['id'], user_type)
+        hashed_recipient_id = hash_id(recipient_details['id'], user_type)
 
        
         emit('receive_message', {
@@ -463,9 +521,9 @@ def send_message():
         }, room=hashed_recipient_id)
 
     else:
-        # Privacy disabled, use real usernames
-        sender_name = db.get_contact_details(actual_sender_id, user_type)['name']
-        recipient_name = db.get_contact_details(actual_recipient_id, user_type)['name']
+        
+        sender_name = db.get_contact_details(sender_id, user_type)['name']
+        recipient_name = db.get_contact_details(recipient_id, user_type)['name']
 
         # Emit the message with real usernames via Socket.IO
         emit('receive_message', {
@@ -508,7 +566,7 @@ def check_privacy_status():
     recipient = data.get('recipient')
     user_type = session.get('user_type')
     # Check if both parties have privacy off
-    actual_recipient = unhash_id(recipient)
+    actual_recipient = unhash_id(recipient, user_type)
     if db.is_privacy_off_for_both(sender, actual_recipient):
         # Privacy is off, return contact details
         contact_details = db.get_contact_details(actual_recipient, user_type)
@@ -524,10 +582,10 @@ def check_privacy_status():
 @app.route('/start_video_call', methods=['POST'])
 def start_video_call():
     db = DatabaseConnection()
-
+    user_type = session.get('user_type')
     sender = request.json.get('sender')
     recipient = request.json.get('recipient')
-    actual_sender= unhash_id(sender)
+    actual_sender= unhash_id(sender, user_type)
     actual_recipient = unhash_id(recipient)
 
     if db.is_privacy_off_for_both(actual_sender, actual_recipient):
@@ -539,7 +597,8 @@ def start_video_call():
 @app.route('/video_call/<recipient>')
 def video_call(recipient):
     sender = session.get('username')
-    recipient = unhash_id(recipient)
+    user_type = session.get('user_type')
+    recipient = unhash_id(recipient, user_type)
     return render_template('video_call.html', sender=sender, recipient=recipient)
 
 
@@ -547,7 +606,7 @@ def video_call(recipient):
 @app.route("/settings", methods=['GET', 'POST'])
 def settings():
     if 'username' not in session:
-        return redirect(url_for('login'))
+        return redirect(url_for('/'))
 
     db = DatabaseConnection()
     current_username = session.get('username')
@@ -590,13 +649,13 @@ def handle_message(data):
     message = data['message']
     user_type = session.get('user_type')
     db = DatabaseConnection()
-    actual_sender= unhash_id(sender)
-    actual_recipient = unhash_id(recipient)
+    actual_sender= unhash_id(sender, user_type)
+    actual_recipient = unhash_id(recipient, user_type)
 
     if not (db.is_privacy_off_for_both(actual_sender, actual_recipient)):
         # Privacy is enabled: Send anonymous message
         sender_id = db.get_contact_details(actual_sender, user_type)['id']
-        hash_sender_id = hash_id(sender_id)
+        hash_sender_id = hash_id(sender_id, user_type)
 
         emit('receive_message', {'sender': hash_sender_id, 'message': message}, room=recipient)
     else:

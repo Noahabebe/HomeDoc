@@ -27,8 +27,8 @@
                             {% else %}
                                 Anonymous Patient (Symptoms: {{ patient.symptoms }})
                             {% endif %}
-                            <a class="message-btn" href="{{ url_for('message', recipient_id=id1) }}">Message</a>
-                            <a class="video-call-btn" data-recipient="{{ id1 }}" class="disabled">Video Call</a>
+                            <a class="message-btn" href="{{ url_for('message', recipient_id=patient.hashed_id) }}">Message</a>
+                            <a class="video-call-btn" data-recipient="{{ patient.hashed_id }}" class="disabled">Video Call</a>
                         </li>
                     {% endfor %}
                 </ul>
@@ -43,8 +43,8 @@
                             {% else %}
                                 Anonymous Doctor (Specialization: {{ doctor.specialization }})
                             {% endif %}
-                            <a class="message-btn" href="{{ url_for('message', recipient_id=id1) }}">Message</a>
-                            <a class="video-call-btn" data-recipient="{{ id1 }}" class="disabled">Video Call</a>
+                            <a class="message-btn" href="{{ url_for('message', recipient_id=doctor.hashed_id) }}">Message</a>
+                            <a class="video-call-btn" data-recipient="{{ doctor.hashed_id }}" class="disabled">Video Call</a>
                         </li>
                     {% endfor %}
                 </ul>
