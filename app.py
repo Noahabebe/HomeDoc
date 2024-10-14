@@ -60,7 +60,8 @@ def get_original_id(hashed_id, user_type):
 
 def hash_id(user_id, user_type):
     print(f'Hashing user_id: {user_id} for {user_type}')
-    hashed = hashlib.sha256(str(user_id).encode()).hexdigest()
+    unique_prefix = f'{user_type}_'
+    hashed = hashlib.sha256((unique_prefix + str(user_id)).encode()).hexdigest()
     
     # Save to the appropriate database table
     save_id_mapping(hashed, user_id, user_type)
@@ -362,7 +363,7 @@ def finalize_signup():
 
     db = DatabaseConnection()
     db.add_doctor(doctor_name, doctor_phone, doctor_location, doctor_specialization, doctor_username, doctor_password)
-    
+
 
     flash("Sign-up successful! Confirmation text sent.")
     return redirect(url_for('doctor_login'))
